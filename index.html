@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tarapirohe Season Migration</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js for 3D BEV Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Google Fonts: Fredoka & Inter for clean, engaging game typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            background-color: #0f172a;
+        }
+        h1, h2, h3, .game-font {
+            font-family: 'Fredoka', sans-serif;
+        }
+        /* Custom Arcade / Nature Game Buttons */
+        .btn-nature {
+            background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 4px 0 #065f46, 0 8px 15px rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+        }
+        .btn-nature:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #065f46, 0 3px 6px rgba(0,0,0,0.3);
+        }
+        .btn-ocean {
+            background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%);
+            box-shadow: 0 4px 0 #075985, 0 8px 15px rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+        }
+        .btn-ocean:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #075985, 0 3px 6px rgba(0,0,0,0.3);
+        }
+        .btn-amber {
+            background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+            box-shadow: 0 4px 0 #92400e, 0 8px 15px rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+        }
+        .btn-amber:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #92400e, 0 3px 6px rgba(0,0,0,0.3);
+        }
+        /* Smooth Dark Fade Transition */
+        #fade-overlay {
+            transition: opacity 0.85s ease-in-out;
+            pointer-events: none;
+        }
+        /* Virtual Joystick Zone */
+        #joystick-zone {
+            touch-action: none;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-ring 2.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative text-slate-800">
+
+    <!-- 3D Game Canvas Container -->
+    <div id="game-container" class="absolute inset-0 w-full h-full z-0"></div>
+
+    <!-- Fade to Dark Overlay (for death/cycle renewal & end score transition) -->
+    <div id="fade-overlay" class="fixed inset-0 bg-slate-950 opacity-0 z-50 flex flex-col items-center justify-center text-white px-6 text-center">
+        <p id="fade-message" class="game-font text-2xl md:text-4xl font-bold text-sky-300 tracking-wide"></p>
+    </div>
+
+    <!-- Custom Toast / Notification Banner (Replaces alert) -->
+    <div id="toast-banner" class="fixed top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none transition-all duration-300 opacity-0 -translate-y-4">
+        <div class="bg-slate-900/90 backdrop-blur-md text-white px-5 py-2.5 rounded-full shadow-xl border border-white/15 flex items-center gap-2 text-sm md:text-base font-semibold">
+            <span id="toast-icon">🪶</span>
+            <span id="toast-text">Notification</span>
+        </div>
+    </div>
+
+    <!-- ==================== SCREEN 1: MAIN MENU (Left Wireframe) ==================== -->
+    <div id="screen-menu" class="fixed inset-0 z-30 flex items-center justify-center p-4 bg-gradient-to-b from-sky-900/75 via-slate-900/70 to-emerald-950/85 backdrop-blur-sm">
+        <div class="bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 border-4 border-sky-200 text-center relative overflow-hidden">
+            <!-- Decorative Bird Badge -->
+            <div class="inline-flex items-center gap-2 bg-sky-100 text-sky-800 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3">
+                <span>🇳🇿 Aotearoa Braided River Ecology</span>
+            </div>
+           
+            <!-- Title -->
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900 leading-tight mb-1">
+                Tarapirohe<br><span class="text-sky-600">Season Migration</span>
+            </h1>
+            <p class="text-xs text-slate-500 font-medium mb-6">Concept by Alex Madoc • Black-Fronted Tern Journey</p>
+
+            <!-- Wireframe Menu Buttons: Play, Settings, Instructions -->
+            <div class="flex flex-col gap-3.5">
+                <button onclick="openMapScreen()" class="btn-nature w-full py-3.5 px-6 rounded-2xl text-white game-font text-xl font-bold tracking-wide flex items-center justify-center gap-2">
+                    <span>▶</span> Play Migration
+                </button>
+                <button onclick="openModal('modal-instructions')" class="btn-ocean w-full py-3 px-6 rounded-2xl text-white game-font text-lg font-bold tracking-wide flex items-center justify-center gap-2">
+                    <span>📖</span> Instructions
+                </button>
+                <button onclick="openModal('modal-settings')" class="bg-slate-200 hover:bg-slate-300 text-slate-800 w-full py-3 px-6 rounded-2xl game-font text-lg font-bold tracking-wide transition flex items-center justify-center gap-2 shadow-sm">
+                    <span>⚙️</span> Settings
+                </button>
+            </div>
+
+            <!-- Cycle & Progress Footer -->
+            <div class="mt-6 pt-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600 font-semibold">
+                <span>Migration Cycle: <strong id="menu-cycle-count" class="text-sky-700">1</strong></span>
+                <span>Stages Cleared: <strong id="menu-stages-cleared" class="text-emerald-700">0 / 4</strong></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SCREEN 1B: MAP LEVEL SELECT (Any Order + Intro Stage) ==================== -->
+    <div id="screen-map" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md overflow-y-auto">
+        <div class="bg-amber-50 rounded-3xl shadow-2xl max-w-3xl w-full p-5 md:p-8 border-4 border-amber-200 my-auto">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-700 bg-amber-200/70 px-2.5 py-0.5 rounded-full">Choose Any Route Order</span>
+                    <h2 class="text-2xl md:text-3xl font-bold text-slate-900 mt-1">Migration Route Map</h2>
+                </div>
+                <button onclick="showScreen('screen-menu')" class="bg-white hover:bg-slate-100 text-slate-700 font-bold px-4 py-2 rounded-xl border border-slate-300 text-sm shadow-sm">
+                    ← Menu
+                </button>
+            </div>
+
+            <p class="text-sm text-slate-600 mb-5">
+                Guide the <strong>Tarapirohe</strong> (Black-fronted tern) from alpine braided rivers out to the winter ocean coast and back to nest. Complete all stages to finish the migration!
+            </p>
+
+            <!-- Active Upgrades Bar -->
+            <div class="bg-white rounded-2xl p-3 mb-5 border border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs md:text-sm">
+                <span class="font-bold text-slate-700">🪶 Bird Upgrades Earned:</span>
+                <div class="flex flex-wrap gap-2">
+                    <span class="bg-sky-100 text-sky-800 px-2.5 py-1 rounded-lg font-semibold">Wing Speed Lv.<span id="upg-speed">1</span></span>
+                    <span class="bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-lg font-semibold">Stamina Lv.<span id="upg-stamina">1</span></span>
+                    <span class="bg-amber-100 text-amber-800 px-2.5 py-1 rounded-lg font-semibold">Agile Dodge Lv.<span id="upg-dodge">1</span></span>
+                </div>
+            </div>
+
+            <!-- Interactive Route Nodes Grid -->
+            <div id="map-stages-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mb-5">
+                <!-- Populated dynamically via JS -->
+            </div>
+
+            <!-- Complete Migration / View Final Score Button (Unlocks when all levels beaten, or anytime after intro) -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-amber-200">
+                <div class="text-xs text-slate-600">
+                    Flawless Stages: <strong id="map-flawless-count" class="text-emerald-700">0</strong> • Hits Taken: <strong id="map-hits-count" class="text-rose-600">0</strong>
+                </div>
+                <button id="btn-finish-migration" onclick="triggerEndScoreSequence()" class="hidden btn-amber px-6 py-3 rounded-2xl text-white game-font text-lg font-bold w-full sm:w-auto">
+                    🏆 Complete Migration & View Score
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SCREEN 2: GAMEPLAY HUD (Middle Wireframe - Top-Down BEV) ==================== -->
+    <div id="hud-gameplay" class="hidden fixed inset-0 z-20 pointer-events-none flex flex-col justify-between p-3 md:p-5">
+        <!-- Top HUD Bar -->
+        <div class="flex flex-wrap items-start justify-between gap-2">
+            <!-- Stage & Direction Info -->
+            <div class="bg-slate-900/80 backdrop-blur-md text-white p-3 rounded-2xl border border-white/15 shadow-lg pointer-events-auto max-w-xs">
+                <div class="flex items-center gap-2">
+                    <span id="hud-stage-badge" class="bg-sky-500 text-white text-xs font-bold px-2 py-0.5 rounded-md">STAGE 0</span>
+                    <h3 id="hud-stage-title" class="font-bold text-sm md:text-base truncate">Intro: River Shingle</h3>
+                </div>
+                <p id="hud-objective" class="text-xs text-sky-200 mt-0.5">Fly downstream toward the Ocean →</p>
+                <!-- Progress Bar to Destination -->
+                <div class="w-full bg-slate-700 h-2 rounded-full mt-2 overflow-hidden">
+                    <div id="hud-progress-bar" class="bg-gradient-to-r from-sky-400 to-emerald-400 h-full w-0 transition-all duration-150"></div>
+                </div>
+            </div>
+
+            <!-- Vital Meters: Energy (Food/Water), Health/Hits, Score -->
+            <div class="flex items-center gap-2 pointer-events-auto">
+                <div class="bg-slate-900/80 backdrop-blur-md text-white px-3.5 py-2 rounded-2xl border border-white/15 shadow-lg flex flex-col gap-1.5 min-w-[140px] md:min-w-[175px]">
+                    <!-- Food & Water Energy Bar -->
+                    <div class="flex items-center justify-between text-xs font-semibold">
+                        <span class="text-emerald-300">💧🐟 Energy</span>
+                        <span id="hud-energy-text">100%</span>
+                    </div>
+                    <div class="w-full bg-slate-700 h-2.5 rounded-full overflow-hidden">
+                        <div id="hud-energy-bar" class="bg-emerald-400 h-full w-full transition-all duration-150"></div>
+                    </div>
+                    <!-- Hits & Flawless Indicator -->
+                    <div class="flex items-center justify-between text-xs pt-0.5">
+                        <span id="hud-flawless-badge" class="text-amber-300 font-bold">✨ Flawless: YES</span>
+                        <span class="text-slate-300">Hits: <strong id="hud-hits" class="text-white">0</strong></span>
+                    </div>
+                </div>
+
+                <!-- Pause / Map Button -->
+                <button onclick="abortToMap()" class="bg-slate-900/80 hover:bg-slate-800 text-white p-3 rounded-2xl border border-white/15 shadow-lg text-sm font-bold" title="Return to Map">
+                    🗺️
+                </button>
+            </div>
+        </div>
+
+        <!-- Gull Chase Warning Alert -->
+        <div id="gull-warning" class="hidden self-center bg-rose-600/90 backdrop-blur-sm text-white px-4 py-1.5 rounded-full font-bold text-xs md:text-sm shadow-lg animate-bounce">
+            ⚠️ Black-Backed Gull (Karoro) Chasing! Dodge with A/D or Circle!
+        </div>
+
+        <!-- Bottom Controls Area: Mobile Movement Circle (Sticky Note #1) + Action Prompt -->
+        <div class="flex items-end justify-between w-full">
+            <!-- Mobile Movement Circle (Touch Joystick) -->
+            <div id="joystick-container" class="pointer-events-auto relative w-32 h-32 md:w-36 md:h-36 rounded-full bg-white/15 backdrop-blur-md border-2 border-white/40 shadow-xl flex items-center justify-center">
+                <div id="joystick-zone" class="absolute inset-0 rounded-full"></div>
+                <!-- Directional Hints inside Movement Circle -->
+                <span class="absolute top-1.5 text-[10px] font-bold text-white/70">W / ▲</span>
+                <span class="absolute bottom-1.5 text-[10px] font-bold text-white/70">S / ▼</span>
+                <span class="absolute left-2 text-[10px] font-bold text-white/70">A</span>
+                <span class="absolute right-2 text-[10px] font-bold text-white/70">D</span>
+                <!-- Movable Thumb Knob -->
+                <div id="joystick-knob" class="w-12 h-12 rounded-full bg-gradient-to-b from-sky-300 to-sky-500 border-2 border-white shadow-lg pointer-events-none transition-transform duration-75"></div>
+            </div>
+
+            <!-- Desktop Controls Hint & Quick Forage Button -->
+            <div class="flex flex-col items-end gap-2 pointer-events-auto">
+                <button id="btn-forage-prompt" onclick="triggerForageMinigame()" class="hidden btn-ocean px-4 py-3 rounded-2xl text-white font-bold text-sm shadow-xl animate-pulse-slow flex items-center gap-2">
+                    <span>🐟💧</span> Drink & Eat (Space)
+                </button>
+                <div class="hidden md:block bg-slate-900/75 backdrop-blur-sm text-slate-200 text-xs px-3.5 py-2 rounded-xl border border-white/10">
+                    <strong>W/A/S/D</strong> or <strong>Arrows</strong> to Fly • Avoid Rocks & Gulls • Touch Water/Fish Pools to Refuel
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== OVERLAY: FORAGE & DRINK MINIGAME (Sticky Note #4) ==================== -->
+    <div id="modal-minigame" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border-4 border-sky-300 text-center">
+            <span class="inline-block bg-sky-100 text-sky-800 text-xs font-bold px-3 py-1 rounded-full mb-2">Riverbank Refuel Minigame</span>
+            <h3 class="text-2xl font-bold text-slate-900 mb-1">Dip & Catch!</h3>
+            <p class="text-xs md:text-sm text-slate-600 mb-5">
+                Tap <strong>CATCH!</strong> when the moving bobber enters the green freshwater & insect zone!
+            </p>
+
+            <!-- Timing Bar -->
+            <div class="relative w-full h-10 bg-slate-200 rounded-full overflow-hidden border-2 border-slate-300 mb-6 shadow-inner">
+                <!-- Target Sweet Spot -->
+                <div id="minigame-target" class="absolute top-0 bottom-0 bg-emerald-400/90 border-x-2 border-emerald-600" style="left: 35%; width: 30%;"></div>
+                <!-- Moving Cursor -->
+                <div id="minigame-cursor" class="absolute top-0 bottom-0 w-3 bg-sky-600 rounded-full shadow-md" style="left: 0%;"></div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="resolveForageMinigame()" class="btn-nature flex-1 py-3.5 rounded-2xl text-white game-font text-xl font-bold">
+                    🐟 CATCH & DRINK!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== OVERLAY: NO-STRESS TRIVIA & UPGRADE (Main Body Line 1 & Sticky Note #2) ==================== -->
+    <div id="modal-trivia" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 md:p-7 border-4 border-emerald-300 my-auto">
+            <div class="flex items-center justify-between mb-3">
+                <span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full">🌿 No-Stress Tarapirohe Trivia</span>
+                <span id="trivia-stage-tag" class="text-xs font-bold text-slate-400">Stage Complete</span>
+            </div>
+
+            <h3 id="trivia-question" class="text-lg md:text-xl font-bold text-slate-900 mb-4 leading-snug">
+                Question goes here...
+            </h3>
+
+            <!-- Answer Choices -->
+            <div id="trivia-options" class="flex flex-col gap-2.5 mb-4">
+                <!-- Populated dynamically -->
+            </div>
+
+            <!-- Educational Feedback Box (Shows immediately after any answer—no stress!) -->
+            <div id="trivia-feedback" class="hidden bg-sky-50 border border-sky-200 rounded-2xl p-4 mb-5 text-sm text-slate-700">
+                <p id="trivia-feedback-title" class="font-bold text-sky-900 mb-1"></p>
+                <p id="trivia-feedback-text" class="text-xs md:text-sm leading-relaxed"></p>
+            </div>
+
+            <!-- Upgrade Selection (Sticky Note #2: upgrade per lvl) -->
+            <div id="upgrade-section" class="hidden border-t border-slate-200 pt-4">
+                <p class="text-xs font-bold uppercase tracking-wider text-amber-700 mb-2">✨ Choose Your Migration Upgrade:</p>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="applyUpgrade('speed')" class="bg-sky-50 hover:bg-sky-100 border-2 border-sky-300 p-2.5 rounded-xl text-center transition">
+                        <div class="text-xl mb-0.5">💨</div>
+                        <div class="text-xs font-bold text-slate-800">Tailwind</div>
+                        <div class="text-[10px] text-slate-500">+Flight Speed</div>
+                    </button>
+                    <button onclick="applyUpgrade('stamina')" class="bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-300 p-2.5 rounded-xl text-center transition">
+                        <div class="text-xl mb-0.5">🐟</div>
+                        <div class="text-xs font-bold text-slate-800">Endurance</div>
+                        <div class="text-[10px] text-slate-500">+Energy Pool</div>
+                    </button>
+                    <button onclick="applyUpgrade('dodge')" class="bg-amber-50 hover:bg-amber-100 border-2 border-amber-300 p-2.5 rounded-xl text-center transition">
+                        <div class="text-xl mb-0.5">🪶</div>
+                        <div class="text-xs font-bold text-slate-800">Agility</div>
+                        <div class="text-[10px] text-slate-500">+Sharp Turns</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== SCREEN 3: END / SCORE SCREEN (Right Wireframe) ==================== -->
+    <div id="screen-score" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-gradient-to-b from-slate-950 via-slate-900 to-sky-950">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 md:p-8 border-4 border-amber-300 text-center relative">
+            <span class="inline-block bg-amber-100 text-amber-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+                Migration Season Complete
+            </span>
+            <h2 class="text-3xl font-bold text-slate-900 mb-5">Flight Summary</h2>
+
+            <!-- Wireframe Stats List: Score, Hits, Trivia correct, Flawless -->
+            <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 flex flex-col gap-3 text-left mb-6">
+                <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-600 font-semibold">Score:</span>
+                    <span id="end-score" class="game-font text-2xl font-bold text-sky-600">0</span>
+                </div>
+                <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-600 font-semibold">Hits:</span>
+                    <span id="end-hits" class="game-font text-xl font-bold text-rose-600">0</span>
+                </div>
+                <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <span class="text-slate-600 font-semibold">Trivia correct:</span>
+                    <span id="end-trivia" class="game-font text-xl font-bold text-emerald-600">0 / 0</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-slate-600 font-semibold">Flawless Journey:</span>
+                    <span id="end-flawless" class="game-font text-lg font-bold text-amber-600">YES</span>
+                </div>
+            </div>
+
+            <!-- Circled Grade / Rank Badge (Matches Right Wireframe Sketch) -->
+            <div class="flex items-center justify-center gap-4 mb-6">
+                <div class="text-right">
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Migration</div>
+                    <div class="text-lg font-bold text-slate-800">Rank / Award →</div>
+                </div>
+                <div id="end-rank-circle" class="w-20 h-20 rounded-full border-4 border-emerald-500 bg-emerald-50 flex items-center justify-center shadow-lg">
+                    <span id="end-rank-letter" class="game-font text-4xl font-bold text-emerald-700">A</span>
+                </div>
+            </div>
+
+            <button onclick="resetFullMigration()" class="btn-nature w-full py-3.5 rounded-2xl text-white game-font text-xl font-bold">
+                🔄 Start New Season Cycle
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: INSTRUCTIONS ==================== -->
+    <div id="modal-instructions" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border-4 border-sky-200">
+            <h3 class="text-2xl font-bold text-slate-900 mb-3">How to Migrate</h3>
+            <ul class="space-y-2.5 text-sm text-slate-700 mb-6">
+                <li class="flex items-start gap-2.5">
+                    <span class="text-lg">🕹️</span>
+                    <span><strong>Fly (3D Bird's-Eye View):</strong> Use <strong>W / A / S / D</strong>, <strong>Arrow Keys</strong>, or the on-screen <strong>Movement Circle</strong> to steer up, down, left, and right along the braided river.</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                    <span class="text-lg">🪨</span>
+                    <span><strong>Braided River Hazards:</strong> Weave around river boulders, gravel banks, and grass islands. Taking hits breaks a <em>Flawless</em> run!</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                    <span class="text-lg">🦅</span>
+                    <span><strong>Black-Backed Gulls (Karoro):</strong> Watch out for swooping gulls that chase you across the river channels!</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                    <span class="text-lg">💧</span>
+                    <span><strong>Drink & Eat Minigame:</strong> Fly into glowing blue/green river eddies to play a quick timing minigame and restore your migration energy.</span>
+                </li>
+                <li class="flex items-start gap-2.5">
+                    <span class="text-lg">🌿</span>
+                    <span><strong>No-Stress Trivia & Upgrades:</strong> Answer fun Tarapirohe conservation trivia after each stage to unlock flight upgrades!</span>
+                </li>
+            </ul>
+            <button onclick="closeModal('modal-instructions')" class="btn-ocean w-full py-3 rounded-2xl text-white game-font text-lg font-bold">
+                Got It!
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: SETTINGS ==================== -->
+    <div id="modal-settings" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+        <div class="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border-4 border-slate-200">
+            <h3 class="text-2xl font-bold text-slate-900 mb-4">Settings</h3>
+            <div class="space-y-4 mb-6">
+                <div class="flex items-center justify-between bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">Show Movement Circle</div>
+                        <div class="text-xs text-slate-500">On-screen touch joystick for mobile & mouse</div>
+                    </div>
+                    <input id="setting-joystick" type="checkbox" checked onchange="toggleJoystickVisibility()" class="w-5 h-5 accent-sky-600 rounded cursor-pointer">
+                </div>
+                <div class="flex items-center justify-between bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">Sound Effects (Synth)</div>
+                        <div class="text-xs text-slate-500">Gentle river & bird audio cues</div>
+                    </div>
+                    <input id="setting-sound" type="checkbox" checked class="w-5 h-5 accent-sky-600 rounded cursor-pointer">
+                </div>
+            </div>
+            <button onclick="closeModal('modal-settings')" class="btn-nature w-full py-3 rounded-2xl text-white game-font text-lg font-bold">
+                Save & Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * TARAPIROHE SEASON MIGRATION
+         * 3D Bird's-Eye View (BEV) Braided River Migration Game
+         */
+
+        // ==================== GAME DATA & LEVELS ====================
+        const STAGES = [
+            {
+                id: 0,
+                code: "INTRO",
+                title: "Intro: Upper Braided Shingle",
+                directionText: "Fly Downstream to Learn the Currents →",
+                theme: "river",
+                length: 220,
+                rockDensity: 14,
+                gullCount: 1,
+                poolCount: 3,
+                desc: "Practice weaving through braided river channels and gravel banks.",
+                trivia: {
+                    q: "What is 'Tarapirohe' in Aotearoa New Zealand?",
+                    options: [
+                        "The endemic Black-fronted tern that nests on braided rivers",
+                        "A deep-sea penguin that never visits rivers",
+                        "A type of alpine mountain parrot"
+                    ],
+                    correct: 0,
+                    fact: "Tarapirohe (Chlidonias albostriatus) are graceful small terns with a black cap and bright orange bill that breed almost exclusively on South Island braided rivers!"
+                }
+            },
+            {
+                id: 1,
+                code: "STAGE 1",
+                title: "Mid-River Rapids & Islands",
+                directionText: "Navigate Downstream Toward the Coast →",
+                theme: "river",
+                length: 300,
+                rockDensity: 24,
+                gullCount: 2,
+                poolCount: 4,
+                desc: "Swift currents, grassy shingle islands, and patrolling Black-backed gulls.",
+                trivia: {
+                    q: "Why are braided rivers so important for Tarapirohe during spring and summer?",
+                    options: [
+                        "They build nests in tall pine trees",
+                        "Open shingle islands protect their camouflaged eggs and provide aquatic insects",
+                        "They hibernate under river boulders"
+                    ],
+                    correct: 1,
+                    fact: "Tarapirohe nest directly on bare river shingle! Shifting water channels naturally help protect their nests from land predators—unless weeds take over."
+                }
+            },
+            {
+                id: 2,
+                code: "STAGE 2",
+                title: "Coastal Estuary & Winter Ocean",
+                directionText: "Reach the Open Ocean Feeding Grounds →",
+                theme: "ocean",
+                length: 340,
+                rockDensity: 26,
+                gullCount: 3,
+                poolCount: 4,
+                desc: "Cross the river mouth into coastal ocean swells where Tarapirohe spend winter.",
+                trivia: {
+                    q: "Where do most Tarapirohe migrate after breeding season ends?",
+                    options: [
+                        "Out to the coastal ocean and estuaries to feed on small fish and krill",
+                        "All the way to Antarctica",
+                        "Deep underground caves"
+                    ],
+                    correct: 0,
+                    fact: "After raising chicks on inland braided rivers, Tarapirohe migrate downstream to the coast and ocean—feeding up to 10 km offshore during autumn and winter!"
+                }
+            },
+            {
+                id: 3,
+                code: "STAGE 3",
+                title: "Upstream Return: Nesting Season",
+                directionText: "Fly Back Upstream to Braided Nesting Grounds ↑",
+                theme: "return",
+                length: 380,
+                rockDensity: 30,
+                gullCount: 3,
+                poolCount: 5,
+                desc: "The seasonal cycle completes! Return upstream against the current to nest.",
+                trivia: {
+                    q: "Who is a major aerial predator that chases Tarapirohe along braided rivers?",
+                    options: [
+                        "Fantail (Pīwakawaka)",
+                        "Southern Black-backed Gull (Karoro)",
+                        "Kākāpō"
+                    ],
+                    correct: 1,
+                    fact: "Southern Black-backed Gulls (Karoro) prey on Tarapirohe eggs and chicks. Agile flying and healthy river habitats help Tarapirohe survive and raise the next generation!"
+                }
+            }
+        ];
+
+        // ==================== GLOBAL GAME STATE ====================
+        const gameState = {
+            cycle: 1,
+            score: 0,
+            totalHits: 0,
+            triviaCorrect: 0,
+            triviaAnswered: 0,
+            completedStages: new Set(),
+            flawlessStages: new Set(),
+            upgrades: {
+                speed: 1,
+                stamina: 1,
+                dodge: 1
+            },
+            // Active Stage Runtime State
+            isPlaying: false,
+            isPaused: false,
+            currentStage: null,
+            stageHits: 0,
+            energy: 100,
+            maxEnergy: 100,
+            invulnTimer: 0,
+            nearbyPool: null
+        };
+
+        // ==================== SIMPLE WEB AUDIO SYNTH (Zero External Files) ====================
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playTone(freq, type = 'sine', duration = 0.15, vol = 0.1) {
+            if (!document.getElementById('setting-sound')?.checked) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        // ==================== THREE.JS 3D BEV ENGINE SETUP ====================
+        let scene, camera, renderer;
+        let playerBird, leftWing, rightWing;
+        let riverMeshes = [];
+        let obstacles = []; // Rocks & Grass Islands
+        let gulls = [];     // Black-backed gulls
+        let pools = [];     // Water/Food refuel pools
+        let finishLineMesh;
+
+        const RIVER_HALF_WIDTH = 16;
+
+        function initThreeJS() {
+            const container = document.getElementById('game-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0c4a6e);
+            scene.fog = new THREE.FogExp2(0x0c4a6e, 0.012);
+
+            // Bird's-Eye View (BEV) Camera angled slightly forward for 3D depth
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
+            camera.position.set(0, 26, 14);
+            camera.lookAt(0, 0, -6);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xfffbeb, 0.9);
+            dirLight.position.set(18, 35, 15);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            buildPlayerBird();
+            buildAmbientBackdrop();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function buildPlayerBird() {
+            playerBird = new THREE.Group();
+
+            // Tarapirohe (Black-fronted tern): sleek grey body, black cap, bright orange beak
+            const bodyGeo = new THREE.ConeGeometry(0.55, 2.1, 8);
+            bodyGeo.rotateX(-Math.PI / 2);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.4 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.castShadow = true;
+            playerBird.add(body);
+
+            // Black Cap Head
+            const headGeo = new THREE.SphereGeometry(0.38, 12, 12);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5 });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.set(0, 0.12, -0.95);
+            playerBird.add(head);
+
+            // Bright Orange Bill
+            const beakGeo = new THREE.ConeGeometry(0.14, 0.55, 6);
+            beakGeo.rotateX(-Math.PI / 2);
+            const beakMat = new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0x9a3412, emissiveIntensity: 0.3 });
+            const beak = new THREE.Mesh(beakGeo, beakMat);
+            beak.position.set(0, 0.08, -1.42);
+            playerBird.add(beak);
+
+            // Swept Tern Wings (Animated flap)
+            const wingGeo = new THREE.BoxGeometry(2.2, 0.08, 0.65);
+            const wingMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.4 });
+
+            leftWing = new THREE.Mesh(wingGeo, wingMat);
+            leftWing.position.set(-1.1, 0.05, -0.1);
+            leftWing.rotation.y = 0.25;
+            playerBird.add(leftWing);
+
+            rightWing = new THREE.Mesh(wingGeo, wingMat);
+            rightWing.position.set(1.1, 0.05, -0.1);
+            rightWing.rotation.y = -0.25;
+            playerBird.add(rightWing);
+
+            // Forked Tail
+            const tailGeo = new THREE.ConeGeometry(0.35, 0.9, 4);
+            tailGeo.rotateX(Math.PI / 2);
+            const tail = new THREE.Mesh(tailGeo, wingMat);
+            tail.position.set(0, 0, 1.2);
+            playerBird.add(tail);
+
+            playerBird.position.set(0, 1.5, 0);
+            scene.add(playerBird);
+        }
+
+        function buildAmbientBackdrop() {
+            // Subtle animated river tiles visible behind main menu
+            const waterGeo = new THREE.PlaneGeometry(34, 120);
+            waterGeo.rotateX(-Math.PI / 2);
+            const waterMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 });
+            const water = new THREE.Mesh(waterGeo, waterMat);
+            scene.add(water);
+            riverMeshes.push(water);
+        }
+
+        function clearStageObjects() {
+            [...riverMeshes, ...obstacles, ...gulls, ...pools].forEach(obj => scene.remove(obj));
+            if (finishLineMesh) scene.remove(finishLineMesh);
+            riverMeshes = [];
+            obstacles = [];
+            gulls = [];
+            pools = [];
+            finishLineMesh = null;
+        }
+
+        function buildStageWorld(stage) {
+            clearStageObjects();
+
+            const len = stage.length;
+            const isOcean = stage.theme === 'ocean';
+            const isReturn = stage.theme === 'return';
+
+            // Update sky/fog palette per stage theme
+            const bgColor = isOcean ? 0x0369a1 : (isReturn ? 0x065f46 : 0x0c4a6e);
+            scene.background = new THREE.Color(bgColor);
+            scene.fog = new THREE.FogExp2(bgColor, 0.011);
+
+            // 1. Main Braided River / Ocean Water Bed
+            const waterGeo = new THREE.PlaneGeometry(RIVER_HALF_WIDTH * 2 + 4, len + 80);
+            waterGeo.rotateX(-Math.PI / 2);
+            const waterMat = new THREE.MeshStandardMaterial({
+                color: isOcean ? 0x0284c7 : 0x0ea5e9,
+                roughness: 0.25,
+                metalness: 0.1
+            });
+            const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+            waterMesh.position.set(0, 0, -len / 2);
+            scene.add(waterMesh);
+            riverMeshes.push(waterMesh);
+
+            // 2. Left & Right Shingle/Grass Riverbanks
+            const bankGeo = new THREE.BoxGeometry(24, 1.4, len + 80);
+            const bankMat = new THREE.MeshStandardMaterial({
+                color: isOcean ? 0xfde68a : 0x4d7c0f, // Sandy coast vs lush river grass
+                roughness: 0.85
+            });
+            const leftBank = new THREE.Mesh(bankGeo, bankMat);
+            leftBank.position.set(-(RIVER_HALF_WIDTH + 12), 0.5, -len / 2);
+            scene.add(leftBank);
+            riverMeshes.push(leftBank);
+
+            const rightBank = new THREE.Mesh(bankGeo, bankMat);
+            rightBank.position.set(RIVER_HALF_WIDTH + 12, 0.5, -len / 2);
+            scene.add(rightBank);
+            riverMeshes.push(rightBank);
+
+            // 3. Braided River Gravel Islands & Boulders (Rocks + Grass)
+            for (let i = 0; i < stage.rockDensity; i++) {
+                const zPos = -22 - (i / stage.rockDensity) * (len - 35);
+                const xPos = (Math.random() * 2 - 1) * (RIVER_HALF_WIDTH - 2.5);
+                const isGrassIsland = Math.random() > 0.45;
+
+                const group = new THREE.Group();
+                const radius = isGrassIsland ? (1.6 + Math.random() * 1.4) : (1.1 + Math.random() * 0.9);
+
+                // Shingle/Rock base
+                const rockGeo = new THREE.DodecahedronGeometry(radius, 1);
+                rockGeo.scale(1.2, 0.55, 1.4);
+                const rockMat = new THREE.MeshStandardMaterial({
+                    color: isGrassIsland ? 0xa8a29e : 0x64748b,
+                    roughness: 0.9
+                });
+                const rock = new THREE.Mesh(rockGeo, rockMat);
+                rock.castShadow = true;
+                group.add(rock);
+
+                // Grass tuft on braided islands
+                if (isGrassIsland) {
+                    const grassGeo = new THREE.CylinderGeometry(radius * 0.75, radius * 0.95, 0.45, 8);
+                    const grassMat = new THREE.MeshStandardMaterial({ color: 0x65a30d, roughness: 0.8 });
+                    const grass = new THREE.Mesh(grassGeo, grassMat);
+                    grass.position.y = 0.35;
+                    group.add(grass);
+                }
+
+                group.position.set(xPos, 0.3, zPos);
+                group.userData = { radius: radius * 1.05 };
+                scene.add(group);
+                obstacles.push(group);
+            }
+
+            // 4. Water & Food Foraging Pools (Glowing turquoise eddies)
+            for (let i = 0; i < stage.poolCount; i++) {
+                const zPos = -35 - (i / stage.poolCount) * (len - 55);
+                const xPos = (Math.random() * 2 - 1) * (RIVER_HALF_WIDTH - 4);
+
+                const poolGroup = new THREE.Group();
+                const ringGeo = new THREE.RingGeometry(1.3, 1.9, 24);
+                ringGeo.rotateX(-Math.PI / 2);
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide });
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                poolGroup.add(ring);
+
+                const coreGeo = new THREE.CircleGeometry(1.3, 24);
+                coreGeo.rotateX(-Math.PI / 2);
+                const coreMat = new THREE.MeshBasicMaterial({ color: 0xa7f3d0, transparent: true, opacity: 0.65 });
+                const core = new THREE.Mesh(coreGeo, coreMat);
+                core.position.y = 0.02;
+                poolGroup.add(core);
+
+                poolGroup.position.set(xPos, 0.15, zPos);
+                poolGroup.userData = { collected: false, radius: 2.1 };
+                scene.add(poolGroup);
+                pools.push(poolGroup);
+            }
+
+            // 5. Black-Backed Gulls (Karoro) Predators
+            for (let i = 0; i < stage.gullCount; i++) {
+                const zPos = -65 - i * ((len - 80) / Math.max(1, stage.gullCount));
+                const gull = createBlackBackedGull();
+                gull.position.set((i % 2 === 0 ? -8 : 8), 1.8, zPos);
+                gull.userData = {
+                    baseZ: zPos,
+                    phase: i * 2.1,
+                    speed: 5.5 + stage.id * 0.9
+                };
+                scene.add(gull);
+                gulls.push(gull);
+            }
+
+            // 6. Destination Zone (Ocean / Nesting Shingle Banner)
+            const finishGeo = new THREE.PlaneGeometry(RIVER_HALF_WIDTH * 2, 6);
+            finishGeo.rotateX(-Math.PI / 2);
+            const finishMat = new THREE.MeshBasicMaterial({
+                color: isReturn ? 0xfbbf24 : 0x38bdf8,
+                transparent: true,
+                opacity: 0.75
+            });
+            finishLineMesh = new THREE.Mesh(finishGeo, finishMat);
+            finishLineMesh.position.set(0, 0.12, -len);
+            scene.add(finishLineMesh);
+        }
+
+        function createBlackBackedGull() {
+            // Larger black & white gull predator
+            const gull = new THREE.Group();
+            const bodyGeo = new THREE.ConeGeometry(0.75, 2.5, 8);
+            bodyGeo.rotateX(Math.PI / 2);
+            const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+            const body = new THREE.Mesh(bodyGeo, whiteMat);
+            gull.add(body);
+
+            // Black back/wings (Southern Black-backed Gull)
+            const wingGeo = new THREE.BoxGeometry(3.2, 0.12, 0.85);
+            const blackMat = new THREE.MeshStandardMaterial({ color: 0x1e293b });
+            const wings = new THREE.Mesh(wingGeo, blackMat);
+            wings.position.y = 0.15;
+            gull.add(wings);
+
+            return gull;
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ==================== CONTROLS: WASD / ARROWS + MOBILE MOVEMENT CIRCLE ====================
+        const inputState = {
+            x: 0, // -1 (Left / A) to +1 (Right / D)
+            y: 0  // -1 (Down / S) to +1 (Up / W)
+        };
+        const keysPressed = {};
+
+        window.addEventListener('keydown', (e) => {
+            keysPressed[e.code] = true;
+            if (e.code === 'Space' && gameState.isPlaying && !gameState.isPaused && gameState.nearbyPool) {
+                triggerForageMinigame();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            keysPressed[e.code] = false;
+        });
+
+        // Mobile & Mouse Touch Movement Circle
+        function setupMovementCircle() {
+            const zone = document.getElementById('joystick-zone');
+            const knob = document.getElementById('joystick-knob');
+            let activeTouchId = null;
+
+            function handleMove(clientX, clientY) {
+                const rect = zone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                const maxRadius = rect.width / 2 - 16;
+
+                let dx = clientX - centerX;
+                let dy = clientY - centerY;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > maxRadius) {
+                    dx = (dx / dist) * maxRadius;
+                    dy = (dy / dist) * maxRadius;
+                }
+
+                knob.style.transform = `translate(${dx}px, ${dy}px)`;
+                inputState.x = dx / maxRadius;
+                inputState.y = -dy / maxRadius; // Up on circle = forward (+1)
+            }
+
+            function resetJoystick() {
+                activeTouchId = null;
+                knob.style.transform = `translate(0px, 0px)`;
+                inputState.x = 0;
+                inputState.y = 0;
+            }
+
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                activeTouchId = touch.identifier;
+                handleMove(touch.clientX, touch.clientY);
+            }, { passive: false });
+
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let t of e.changedTouches) {
+                    if (t.identifier === activeTouchId) {
+                        handleMove(t.clientX, t.clientY);
+                    }
+                }
+            }, { passive: false });
+
+            zone.addEventListener('touchend', (e) => {
+                for (let t of e.changedTouches) {
+                    if (t.identifier === activeTouchId) resetJoystick();
+                }
+            });
+
+            // Also support mouse drag on the Movement Circle for desktop testing
+            let isMouseDown = false;
+            zone.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                handleMove(e.clientX, e.clientY);
+            });
+            window.addEventListener('mousemove', (e) => {
+                if (isMouseDown) handleMove(e.clientX, e.clientY);
+            });
+            window.addEventListener('mouseup', () => {
+                if (isMouseDown) {
+                    isMouseDown = false;
+                    resetJoystick();
+                }
+            });
+        }
+
+        function getCombinedMovement() {
+            let kx = 0;
+            let ky = 0;
+            if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) kx -= 1;
+            if (keysPressed['KeyD'] || keysPressed['ArrowRight']) kx += 1;
+            if (keysPressed['KeyW'] || keysPressed['ArrowUp']) ky += 1;
+            if (keysPressed['KeyS'] || keysPressed['ArrowDown']) ky -= 1;
+
+            return {
+                x: Math.max(-1, Math.min(1, kx + inputState.x)),
+                y: Math.max(-1, Math.min(1, ky + inputState.y))
+            };
+        }
+
+        // ==================== UI NAVIGATION & MAP RENDERING ====================
+        function showScreen(screenId) {
+            ['screen-menu', 'screen-map', 'hud-gameplay', 'screen-score'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            if (screenId) {
+                document.getElementById(screenId).classList.remove('hidden');
+            }
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function toggleJoystickVisibility() {
+            const show = document.getElementById('setting-joystick').checked;
+            document.getElementById('joystick-container').style.display = show ? 'flex' : 'none';
+        }
+
+        function showToast(icon, text) {
+            const banner = document.getElementById('toast-banner');
+            document.getElementById('toast-icon').textContent = icon;
+            document.getElementById('toast-text').textContent = text;
+            banner.classList.remove('opacity-0', '-translate-y-4');
+            clearTimeout(banner._timer);
+            banner._timer = setTimeout(() => {
+                banner.classList.add('opacity-0', '-translate-y-4');
+            }, 2600);
+        }
+
+        function openMapScreen() {
+            gameState.isPlaying = false;
+            renderMapGrid();
+            showScreen('screen-map');
+        }
+
+        function renderMapGrid() {
+            const grid = document.getElementById('map-stages-grid');
+            grid.innerHTML = '';
+
+            document.getElementById('upg-speed').textContent = gameState.upgrades.speed;
+            document.getElementById('upg-stamina').textContent = gameState.upgrades.stamina;
+            document.getElementById('upg-dodge').textContent = gameState.upgrades.dodge;
+            document.getElementById('map-flawless-count').textContent = gameState.flawlessStages.size;
+            document.getElementById('map-hits-count').textContent = gameState.totalHits;
+
+            STAGES.forEach(stage => {
+                const isDone = gameState.completedStages.has(stage.id);
+                const isFlawless = gameState.flawlessStages.has(stage.id);
+
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                    isDone
+                        ? 'bg-emerald-50 border-emerald-400 shadow-sm'
+                        : 'bg-white hover:border-sky-400 border-slate-200 shadow-md'
+                }`;
+                card.onclick = () => startStage(stage.id);
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-1.5">
+                            <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                                stage.id === 0 ? 'bg-amber-100 text-amber-800' : 'bg-sky-100 text-sky-800'
+                            }">${stage.code}</span>
+                            ${isDone
+                                ? `<span class="text-xs font-bold text-emerald-700">${isFlawless ? '⭐ Flawless!' : '✅ Cleared'}</span>`
+                                : `<span class="text-xs font-semibold text-slate-400">Ready</span>`
+                            }
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base mb-1">${stage.title}</h3>
+                        <p class="text-xs text-slate-600 mb-3">${stage.desc}</p>
+                    </div>
+                    <div class="flex items-center justify-between text-xs font-bold text-sky-700 pt-2 border-t border-slate-100">
+                        <span>${isDone ? 'Replay Route' : 'Start Flight'}</span>
+                        <span>→</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+
+            // Show Complete Migration button when all 4 stages are cleared
+            const finishBtn = document.getElementById('btn-finish-migration');
+            if (gameState.completedStages.size >= STAGES.length) {
+                finishBtn.classList.remove('hidden');
+            } else {
+                finishBtn.classList.add('hidden');
+            }
+        }
+
+        // ==================== STAGE GAMEPLAY LIFECYCLE ====================
+        function startStage(stageId) {
+            const stage = STAGES.find(s => s.id === stageId);
+            if (!stage) return;
+
+            gameState.currentStage = stage;
+            gameState.isPlaying = true;
+            gameState.isPaused = false;
+            gameState.stageHits = 0;
+            gameState.maxEnergy = 100 + (gameState.upgrades.stamina - 1) * 25;
+            gameState.energy = gameState.maxEnergy;
+            gameState.invulnTimer = 1.5;
+            gameState.nearbyPool = null;
+
+            buildStageWorld(stage);
+
+            // Reset bird position at start of river
+            playerBird.position.set(0, 1.5, 0);
+            playerBird.rotation.set(0, 0, 0);
+
+            // Update HUD labels
+            document.getElementById('hud-stage-badge').textContent = stage.code;
+            document.getElementById('hud-stage-title').textContent = stage.title;
+            document.getElementById('hud-objective').textContent = stage.directionText;
+            updateHUD();
+
+            showScreen('hud-gameplay');
+            playTone(520, 'sine', 0.2, 0.12);
+        }
+
+        function abortToMap() {
+            gameState.isPlaying = false;
+            openMapScreen();
+        }
+
+        function updateHUD() {
+            const stage = gameState.currentStage;
+            if (!stage) return;
+
+            // Progress along river (-Z)
+            const progress = Math.max(0, Math.min(100, (-playerBird.position.z / stage.length) * 100));
+            document.getElementById('hud-progress-bar').style.width = `${progress}%`;
+
+            // Energy bar
+            const energyPct = Math.max(0, Math.min(100, (gameState.energy / gameState.maxEnergy) * 100));
+            document.getElementById('hud-energy-bar').style.width = `${energyPct}%`;
+            document.getElementById('hud-energy-bar').className = `h-full transition-all duration-150 ${
+                energyPct < 30 ? 'bg-rose-500' : 'bg-emerald-400'
+            }`;
+            document.getElementById('hud-energy-text').textContent = `${Math.round(energyPct)}%`;
+
+            // Hits & Flawless (Y/N)
+            document.getElementById('hud-hits').textContent = gameState.stageHits;
+            const flawlessEl = document.getElementById('hud-flawless-badge');
+            if (gameState.stageHits === 0) {
+                flawlessEl.textContent = "✨ Flawless: YES";
+                flawlessEl.className = "text-amber-300 font-bold";
+            } else {
+                flawlessEl.textContent = "💥 Flawless: NO";
+                flawlessEl.className = "text-rose-400 font-bold";
+            }
+        }
+
+        // ==================== FORAGE & DRINK MINIGAME (Sticky Note #4) ====================
+        let minigameAnimId = null;
+        let cursorPos = 0;
+        let cursorDir = 1;
+
+        function triggerForageMinigame() {
+            if (!gameState.nearbyPool || gameState.isPaused) return;
+            gameState.isPaused = true;
+            document.getElementById('btn-forage-prompt').classList.add('hidden');
+            openModal('modal-minigame');
+
+            cursorPos = 0;
+            cursorDir = 1;
+
+            function stepMinigame() {
+                cursorPos += cursorDir * 2.2;
+                if (cursorPos >= 96) { cursorPos = 96; cursorDir = -1; }
+                if (cursorPos <= 0) { cursorPos = 0; cursorDir = 1; }
+                document.getElementById('minigame-cursor').style.left = `${cursorPos}%`;
+                minigameAnimId = requestAnimationFrame(stepMinigame);
+            }
+            minigameAnimId = requestAnimationFrame(stepMinigame);
+        }
+
+        function resolveForageMinigame() {
+            cancelAnimationFrame(minigameAnimId);
+            closeModal('modal-minigame');
+
+            // Target zone is 35% to 65%
+            const isSweetSpot = cursorPos >= 33 && cursorPos <= 67;
+            if (isSweetSpot) {
+                gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + 45);
+                gameState.score += 150;
+                playTone(660, 'triangle', 0.25, 0.15);
+                showToast('🐟', 'Fresh catch & river water! +45% Energy & +150 pts');
+            } else {
+                gameState.energy = Math.min(gameState.maxEnergy, gameState.energy + 20);
+                gameState.score += 50;
+                playTone(440, 'sine', 0.2, 0.1);
+                showToast('💧', 'Sip of river water! +20% Energy');
+            }
+
+            if (gameState.nearbyPool) {
+                gameState.nearbyPool.userData.collected = true;
+                gameState.nearbyPool.visible = false;
+                gameState.nearbyPool = null;
+            }
+
+            updateHUD();
+            gameState.isPaused = false;
+        }
+
+        // ==================== DEATH & CYCLE RENEWAL ("You die and cycle becomes a new") ====================
+        function handleMigrationFailure(reasonText) {
+            gameState.isPlaying = false;
+            playTone(180, 'sawtooth', 0.45, 0.15);
+
+            const overlay = document.getElementById('fade-overlay');
+            const msg = document.getElementById('fade-message');
+            msg.textContent = `${reasonText}\nThe season resets—a new migration cycle begins...`;
+
+            // Fade into dark
+            overlay.style.pointerEvents = 'auto';
+            overlay.classList.remove('opacity-0');
+            overlay.classList.add('opacity-100');
+
+            setTimeout(() => {
+                gameState.cycle += 1;
+                document.getElementById('menu-cycle-count').textContent = gameState.cycle;
+                openMapScreen();
+
+                setTimeout(() => {
+                    overlay.classList.remove('opacity-100');
+                    overlay.classList.add('opacity-0');
+                    overlay.style.pointerEvents = 'none';
+                }, 400);
+            }, 1900);
+        }
+
+        // ==================== STAGE COMPLETE -> NO-STRESS TRIVIA & UPGRADE ====================
+        function completeCurrentStage() {
+            gameState.isPlaying = false;
+            const stage = gameState.currentStage;
+            playTone(587, 'triangle', 0.3, 0.15);
+
+            gameState.completedStages.add(stage.id);
+            let stageBonus = 500;
+            if (gameState.stageHits === 0) {
+                gameState.flawlessStages.add(stage.id);
+                stageBonus += 300;
+            }
+            gameState.score += stageBonus;
+
+            // Update Menu progress counters
+            document.getElementById('menu-stages-cleared').textContent = `${gameState.completedStages.size} / ${STAGES.length}`;
+
+            // Open No-Stress Trivia Modal
+            openTriviaModal(stage);
+        }
+
+        function openTriviaModal(stage) {
+            document.getElementById('trivia-stage-tag').textContent = `${stage.code} Complete!`;
+            document.getElementById('trivia-question').textContent = stage.trivia.q;
+            document.getElementById('trivia-feedback').classList.add('hidden');
+            document.getElementById('upgrade-section').classList.add('hidden');
+
+            const optionsBox = document.getElementById('trivia-options');
+            optionsBox.innerHTML = '';
+
+            stage.trivia.options.forEach((optText, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-3.5 rounded-2xl border-2 border-slate-200 hover:border-sky-400 hover:bg-sky-50 font-semibold text-sm text-slate-800 transition";
+                btn.textContent = optText;
+                btn.onclick = () => selectTriviaOption(idx, stage.trivia, btn);
+                optionsBox.appendChild(btn);
+            });
+
+            openModal('modal-trivia');
+        }
+
+        function selectTriviaOption(selectedIndex, triviaObj, clickedBtn) {
+            const buttons = document.getElementById('trivia-options').querySelectorAll('button');
+            buttons.forEach(b => b.disabled = true);
+
+            gameState.triviaAnswered += 1;
+            const isCorrect = selectedIndex === triviaObj.correct;
+
+            const fbBox = document.getElementById('trivia-feedback');
+            const fbTitle = document.getElementById('trivia-feedback-title');
+            const fbText = document.getElementById('trivia-feedback-text');
+
+            if (isCorrect) {
+                gameState.triviaCorrect += 1;
+                gameState.score += 250;
+                clickedBtn.classList.add('bg-emerald-100', 'border-emerald-500', 'text-emerald-900');
+                fbTitle.textContent = "🎉 Ka pai! Spot on! (+250 pts)";
+                playTone(784, 'sine', 0.25, 0.14);
+            } else {
+                clickedBtn.classList.add('bg-amber-100', 'border-amber-400', 'text-amber-900');
+                buttons[triviaObj.correct].classList.add('bg-emerald-50', 'border-emerald-400');
+                fbTitle.textContent = "🌿 Great try! No stress—here's what happens:";
+                playTone(480, 'sine', 0.2, 0.1);
+            }
+
+            fbText.textContent = triviaObj.fact;
+            fbBox.classList.remove('hidden');
+            document.getElementById('upgrade-section').classList.remove('hidden');
+        }
+
+        function applyUpgrade(type) {
+            gameState.upgrades[type] += 1;
+            closeModal('modal-trivia');
+            playTone(659, 'triangle', 0.2, 0.12);
+            showToast('🪶', `Upgraded ${type.toUpperCase()} to Level ${gameState.upgrades[type]}!`);
+
+            // If all stages are beaten, offer final score screen or map
+            openMapScreen();
+        }
+
+        // ==================== END / SCORE SEQUENCE ("Fade into dark then you see score") ====================
+        function triggerEndScoreSequence() {
+            const overlay = document.getElementById('fade-overlay');
+            const msg = document.getElementById('fade-message');
+            msg.textContent = "The braided river migration season concludes...";
+
+            overlay.style.pointerEvents = 'auto';
+            overlay.classList.remove('opacity-0');
+            overlay.classList.add('opacity-100');
+
+            setTimeout(() => {
+                populateScoreScreen();
+                showScreen('screen-score');
+
+                overlay.classList.remove('opacity-100');
+                overlay.classList.add('opacity-0');
+                overlay.style.pointerEvents = 'none';
+            }, 1300);
+        }
+
+        function populateScoreScreen() {
+            document.getElementById('end-score').textContent = gameState.score;
+            document.getElementById('end-hits').textContent = gameState.totalHits;
+            document.getElementById('end-trivia').textContent = `${gameState.triviaCorrect} / ${gameState.triviaAnswered}`;
+
+            const isAllFlawless = gameState.totalHits === 0 && gameState.flawlessStages.size >= STAGES.length;
+            document.getElementById('end-flawless').textContent = isAllFlawless ? "YES ⭐" : "NO";
+
+            // Calculate Rank / Award (A, B, C)
+            let rank = 'A';
+            let circleClass = 'border-emerald-500 bg-emerald-50 text-emerald-700';
+            if (gameState.totalHits > 4) {
+                rank = 'C';
+                circleClass = 'border-amber-500 bg-amber-50 text-amber-700';
+            } else if (gameState.totalHits > 1 || gameState.triviaCorrect < 2) {
+                rank = 'B';
+                circleClass = 'border-sky-500 bg-sky-50 text-sky-700';
+            }
+
+            const circle = document.getElementById('end-rank-circle');
+            const letter = document.getElementById('end-rank-letter');
+            circle.className = `w-20 h-20 rounded-full border-4 flex items-center justify-center shadow-lg ${circleClass}`;
+            letter.className = `game-font text-4xl font-bold ${circleClass.split(' ').pop()}`;
+            letter.textContent = rank;
+        }
+
+        function resetFullMigration() {
+            gameState.cycle += 1;
+            gameState.score = 0;
+            gameState.totalHits = 0;
+            gameState.triviaCorrect = 0;
+            gameState.triviaAnswered = 0;
+            gameState.completedStages.clear();
+            gameState.flawlessStages.clear();
+            gameState.upgrades = { speed: 1, stamina: 1, dodge: 1 };
+
+            document.getElementById('menu-cycle-count').textContent = gameState.cycle;
+            document.getElementById('menu-stages-cleared').textContent = `0 / ${STAGES.length}`;
+            showScreen('screen-menu');
+        }
+
+        // ==================== MAIN 3D ANIMATION & PHYSICS LOOP ====================
+        let lastTime = performance.now();
+
+        function animate(now) {
+            requestAnimationFrame(animate);
+
+            const dt = Math.min(0.05, (now - lastTime) / 1000);
+            lastTime = now;
+
+            // Wing flapping animation
+            const flapSpeed = gameState.isPlaying ? 14 : 6;
+            const flapAngle = Math.sin(now * 0.001 * flapSpeed) * 0.35;
+            if (leftWing && rightWing) {
+                leftWing.rotation.z = flapAngle;
+                rightWing.rotation.z = -flapAngle;
+            }
+
+            if (gameState.isPlaying && !gameState.isPaused && gameState.currentStage) {
+                updateGameplay(dt, now);
+            } else if (!gameState.isPlaying) {
+                // Gentle idle hover camera over river
+                camera.position.x = Math.sin(now * 0.0005) * 3;
+                camera.position.y = 24;
+                camera.position.z = 12;
+                camera.lookAt(0, 0, -10);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function updateGameplay(dt, now) {
+            const stage = gameState.currentStage;
+            const move = getCombinedMovement();
+
+            // Speeds scaled by upgrades
+            const baseForwardSpeed = 13 + (gameState.upgrades.speed - 1) * 2.5;
+            const lateralSpeed = 14 + (gameState.upgrades.dodge - 1) * 2.8;
+
+            // Move Bird (Forward along -Z, plus W/S throttle adjustment, and A/D lateral dodge)
+            const forwardVel = baseForwardSpeed + move.y * 6.5;
+            playerBird.position.z -= forwardVel * dt;
+            playerBird.position.x += move.x * lateralSpeed * dt;
+
+            // Clamp within riverbanks
+            playerBird.position.x = Math.max(-RIVER_HALF_WIDTH + 1.2, Math.min(RIVER_HALF_WIDTH - 1.2, playerBird.position.x));
+
+            // Bank/tilt bird smoothly when steering
+            playerBird.rotation.z = -move.x * 0.45;
+            playerBird.rotation.y = -move.x * 0.25;
+
+            // Invulnerability blink timer after hit
+            if (gameState.invulnTimer > 0) {
+                gameState.invulnTimer -= dt;
+                playerBird.visible = Math.floor(now / 80) % 2 === 0;
+            } else {
+                playerBird.visible = true;
+            }
+
+            // Drain Energy gradually during flight
+            gameState.energy -= (3.6 - (gameState.upgrades.stamina - 1) * 0.3) * dt;
+            if (gameState.energy <= 0) {
+                gameState.energy = 0;
+                updateHUD();
+                handleMigrationFailure("Exhausted! Remember to drink & eat at river pools.");
+                return;
+            }
+
+            // Camera follows bird in 3D Bird's-Eye View (BEV)
+            camera.position.x = playerBird.position.x * 0.55;
+            camera.position.y = 25;
+            camera.position.z = playerBird.position.z + 14;
+            camera.lookAt(playerBird.position.x * 0.4, 0, playerBird.position.z - 8);
+
+            // Check Obstacles (Rocks & Grass Islands)
+            for (let obs of obstacles) {
+                const dist = Math.hypot(playerBird.position.x - obs.position.x, playerBird.position.z - obs.position.z);
+                if (dist < obs.userData.radius + 0.65 && gameState.invulnTimer <= 0) {
+                    registerHit("Clipped a river boulder!");
+                }
+            }
+
+            // Update & Check Black-Backed Gulls (Chasing Predator)
+            let gullChasingNear = false;
+            for (let gull of gulls) {
+                const dz = playerBird.position.z - gull.position.z;
+                // Activate gull chase when bird approaches within 36 units
+                if (dz < 36 && dz > -18) {
+                    gullChasingNear = true;
+                    // Swoop toward player X and pursue
+                    const dirX = Math.sign(playerBird.position.x - gull.position.x);
+                    gull.position.x += dirX * gull.userData.speed * 0.75 * dt;
+                    gull.position.z += (dz > 0 ? 1 : -1) * gull.userData.speed * 0.65 * dt;
+                    gull.lookAt(playerBird.position);
+
+                    const dist = Math.hypot(playerBird.position.x - gull.position.x, playerBird.position.z - gull.position.z);
+                    if (dist < 1.5 && gameState.invulnTimer <= 0) {
+                        registerHit("Swooped by a Black-Backed Gull!");
+                    }
+                } else {
+                    // Patrol side-to-side
+                    gull.position.x = Math.sin(now * 0.002 + gull.userData.phase) * (RIVER_HALF_WIDTH - 3);
+                }
+            }
+            document.getElementById('gull-warning').classList.toggle('hidden', !gullChasingNear);
+
+            // Check Water & Food Foraging Pools
+            let foundPool = null;
+            for (let pool of pools) {
+                if (pool.userData.collected) continue;
+                pool.rotation.y += dt * 1.5;
+                const dist = Math.hypot(playerBird.position.x - pool.position.x, playerBird.position.z - pool.position.z);
+                if (dist < pool.userData.radius + 1.2) {
+                    foundPool = pool;
+                    break;
+                }
+            }
+            gameState.nearbyPool = foundPool;
+            document.getElementById('btn-forage-prompt').classList.toggle('hidden', !foundPool);
+
+            // Add distance score & check stage destination
+            gameState.score += Math.round(forwardVel * dt * 2);
+            updateHUD();
+
+            if (playerBird.position.z <= -stage.length) {
+                completeCurrentStage();
+            }
+        }
+
+        function registerHit(message) {
+            gameState.stageHits += 1;
+            gameState.totalHits += 1;
+            gameState.invulnTimer = 1.6;
+            gameState.energy = Math.max(0, gameState.energy - 18);
+            playTone(150, 'sawtooth', 0.25, 0.15);
+            showToast('💥', `${message} (-18% Energy)`);
+            updateHUD();
+
+            if (gameState.energy <= 0) {
+                handleMigrationFailure("Too many hits along the braided river!");
+            }
+        }
+
+        // ==================== INITIALIZE ON WINDOW LOAD ====================
+        window.onload = function() {
+            initThreeJS();
+            setupMovementCircle();
+            animate(performance.now());
+        };
+    </script>
+</body>
+</html>
